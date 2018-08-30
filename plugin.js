@@ -36,6 +36,32 @@ class Plugin extends OutpointIndexer {
     };
 
     super(options);
+
+    node.http.get('/tx/outpoint/:hash/:index', async (req, res) => {
+      const valid = Validator.fromRequest(req);
+      const hash = valid.brhash('hash');
+      const index = valid.u32('index');
+
+      enforce(hash, 'Hash is required.');
+      enforce(index != null, 'Index is required.');
+
+      const outpoint = Outpoint.fromOptions({
+        hash: hash,
+        index: index
+      });
+      const tx = await this.node.outpointindex.getTX(outpoint);
+
+      const meta = await this.node.getMeta(tx);
+
+      if (!meta) {
+        res.json(404);
+        return;
+      }
+
+      const view = await this.node.getMetaView(meta);
+
+      res.json(200, meta.getJSON(this.network, view, this.chain.height));
+    });
   }
 }
 
